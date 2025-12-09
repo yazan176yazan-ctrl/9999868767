@@ -320,7 +320,7 @@
 <button aria-label="Refresh" class="icon-btn" onclick="resetForm()">
 <img alt="Refresh" src="images/price-refresh.png"/>
 </button>
-<button aria-label="Record" class="icon-btn" onclick="alert('Swap record will be available in the real backend. This is a demo.')">
+<button aria-label="Record" class="icon-btn" onclick="window.location.href='bills.html'">
 <img alt="Record" src="images/record.png"/>
 </button>
 </div>
@@ -441,6 +441,7 @@
 </div>
 </main>
 </div>
+<script src="wallet.js"></script>
 <script src="common-nav.js"></script>
 <script>
   const prices = {
@@ -452,7 +453,7 @@
   };
 
   const balances = {
-    USDT: 3.06,
+    USDT: 0,
     USDC: 0,
     BTC: 0,
     ETH: 0,
@@ -549,6 +550,11 @@
     balances[toToken] = balances[toToken] + received;
 
     updateBalancesUI();
+
+    if (window.DemoWallet && typeof window.DemoWallet.recordSwap === 'function') {
+      DemoWallet.recordSwap(fromToken, toToken, amount, received);
+    }
+
     alert('Swap successful (demo only).');
     resetForm();
     updateExpected();
@@ -627,7 +633,20 @@
 
   fromAmountInput.addEventListener('input', updateExpected);
 
+
+  function syncFromWallet() {
+    if (window.DemoWallet && typeof window.DemoWallet.getWallet === 'function') {
+      var w = DemoWallet.getWallet();
+      if (w && typeof w.balance === 'number') {
+        balances.USDT = w.balance;
+        updateBalancesUI();
+        updateExpected();
+      }
+    }
+  }
+
   // init
+  syncFromWallet();
   updateBalancesUI();
   updateRateText();
   updateExpected();

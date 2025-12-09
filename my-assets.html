@@ -665,6 +665,7 @@
 </div>
 </nav>
 </div>
+<script src="wallet.js"></script>
 <script>
     (function() {
       var actionMap = {
@@ -673,6 +674,10 @@
         'Bills': 'bills.html',
         'Swap': 'swap.html'
       };
+
+      if (window.DemoWallet && typeof window.DemoWallet.applyToAssetsPage === 'function') {
+        window.DemoWallet.applyToAssetsPage();
+      }
 
       // System Time: live Canadian time (America/Toronto), updated every second
       var systemTimeEl = document.querySelector('.system-label span:last-child');
