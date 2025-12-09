@@ -768,8 +768,242 @@
 </div>
 </div>
 
-
-
 <script src="wallet.js"></script>
+<script>
+  (function() {
+    var gpuCardEls = document.querySelectorAll(".gpu-card");
+    if (!gpuCardEls.length) return;
+
+    var stateKey = "aiPowerState_v1";
+
+    var topCard = document.querySelector(".card");
+    var topAmountEl = topCard ? topCard.querySelector(".card-value") : null;
+
+    var cardRowValues = document.querySelectorAll(".card-row .card-value");
+    var timesCardValueEl = cardRowValues[0] || null;
+    var runRoomValueEl = cardRowValues[1] || null;
+
+    var levelTagEl = document.querySelector(".experience-tag");
+
+    var gpuConfigs = [];
+    var defaultState = {
+      currentLevelIndex: -1,
+      levels: []
+    };
+
+    gpuCardEls.forEach(function(cardEl, index) {
+      var rightCol = cardEl.querySelectorAll(".gpu-col")[1];
+      var leftCol = cardEl.querySelectorAll(".gpu-col")[0];
+      if (!rightCol || !leftCol) return;
+
+      var levelEl = rightCol.querySelector(".gpu-row:nth-child(1) .gpu-value");
+      var levelText = levelEl ? levelEl.textContent.trim() : "V" + (index + 1);
+
+      var runTimesEl = leftCol.querySelector(".gpu-row:nth-child(3) .gpu-value");
+      var runTimesText = runTimesEl ? runTimesEl.textContent.trim() : "0/0";
+      var match = runTimesText.match(/\/(\d+)/);
+      var maxRuns = match ? parseInt(match[1], 10) : 0;
+
+      var runningAmountEl = leftCol.querySelector(".gpu-row:nth-child(2) .gpu-value");
+      var runningAmountText = runningAmountEl ? runningAmountEl.textContent : "";
+      var nums = runningAmountText.match(/\d+/g) || [];
+      var minAmount = nums[0] ? parseFloat(nums[0]) : 0;
+      var maxAmount = nums[1] ? parseFloat(nums[1]) : minAmount;
+      var baseAmount = (minAmount + maxAmount) / 2;
+
+      var rateEl = rightCol.querySelector(".gpu-row:nth-child(2) .gpu-value");
+      var rateText = rateEl ? rateEl.textContent : "";
+      var rateMatches = rateText.match(/([\d.]+)%/g) || [];
+      var rateMin = rateMatches[0] ? parseFloat(rateMatches[0]) : 0;
+      var rateMax = rateMatches[1] ? parseFloat(rateMatches[1]) : rateMin;
+
+      gpuConfigs.push({
+        index: index,
+        levelText: levelText,
+        maxRuns: maxRuns,
+        baseAmount: baseAmount,
+        rateMin: rateMin,
+        rateMax: rateMax,
+        cardEl: cardEl
+      });
+
+      defaultState.levels.push({
+        unlocked: false,
+        runsToday: 0,
+        todayProfit: 0
+      });
+    });
+
+    function clone(obj) {
+      return JSON.parse(JSON.stringify(obj));
+    }
+
+    function loadState() {
+      try {
+        var raw = localStorage.getItem(stateKey);
+        if (raw) {
+          var parsed = JSON.parse(raw);
+          if (parsed && Array.isArray(parsed.levels) && parsed.levels.length === defaultState.levels.length) {
+            return parsed;
+          }
+        }
+      } catch (e) {}
+      return clone(defaultState);
+    }
+
+    var state = loadState();
+
+    function saveState() {
+      try {
+        localStorage.setItem(stateKey, JSON.stringify(state));
+      } catch (e) {}
+    }
+
+    function setCurrentLevel(index) {
+      state.currentLevelIndex = index;
+      gpuConfigs.forEach(function(cfg, i) {
+        var lockTextEl = cfg.cardEl.querySelector(".gpu-lock span:last-child");
+        if (i < index) {
+          cfg.cardEl.style.display = "none";
+        } else {
+          cfg.cardEl.style.display = "";
+        }
+        if (!lockTextEl) return;
+        if (state.levels[i].unlocked && i === index) {
+          lockTextEl.textContent = "Unlocked";
+        } else {
+          lockTextEl.textContent = "Not unlocked";
+        }
+      });
+      if (levelTagEl) {
+        levelTagEl.textContent = "Level:" + (index >= 0 ? gpuConfigs[index].levelText : "V0");
+      }
+    }
+
+    function updateSummary() {
+      var totalAmountLeft = 0;
+      var totalRunsLeft = 0;
+
+      gpuConfigs.forEach(function(cfg, i) {
+        var st = state.levels[i];
+        var profitEl = cfg.cardEl.querySelector(".gpu-value-accent");
+        var runTimesEl = cfg.cardEl.querySelector(".gpu-col:first-child .gpu-row:nth-child(3) .gpu-value");
+
+        if (profitEl) {
+          profitEl.textContent = st.todayProfit.toFixed(2) + " USDT";
+        }
+        if (runTimesEl) {
+          runTimesEl.textContent = st.runsToday + "/" + cfg.maxRuns;
+        }
+
+        if (st.unlocked) {
+          var remainingRuns = Math.max(cfg.maxRuns - st.runsToday, 0);
+          totalRunsLeft += remainingRuns;
+          totalAmountLeft += remainingRuns * cfg.baseAmount;
+        }
+      });
+
+      if (topAmountEl) {
+        topAmountEl.textContent = totalAmountLeft.toFixed(2);
+      }
+
+      if (timesCardValueEl) {
+        timesCardValueEl.textContent = totalRunsLeft + " Times";
+      }
+
+      if (runRoomValueEl) {
+        runRoomValueEl.textContent =
+          state.currentLevelIndex >= 0 ? gpuConfigs[state.currentLevelIndex].levelText : "—";
+      }
+    }
+
+    setCurrentLevel(state.currentLevelIndex);
+    updateSummary();
+
+    gpuConfigs.forEach(function(cfg, i) {
+      var btn = cfg.cardEl.querySelector(".gpu-button-wrap .btn-gradient");
+      if (!btn) return;
+
+      function setButtonText() {
+        btn.textContent = state.levels[i].unlocked ? "Run" : "Run after unlocking";
+      }
+      setButtonText();
+
+      btn.addEventListener("click", function() {
+        var st = state.levels[i];
+
+        if (!st.unlocked) {
+          if (state.currentLevelIndex >= 0 && i > state.currentLevelIndex + 1) {
+            alert("Please unlock the previous level first.");
+            return;
+          }
+          var confirmUnlock = confirm("Unlock " + cfg.levelText + " package? (Demo only)");
+          if (!confirmUnlock) return;
+
+          st.unlocked = true;
+          state.levels[i] = st;
+          setCurrentLevel(i);
+          saveState();
+          updateSummary();
+          setButtonText();
+          alert(cfg.levelText + " unlocked. Tap Run to start.");
+          return;
+        }
+
+        if (st.runsToday >= cfg.maxRuns) {
+          alert("No run times left today for this level.");
+          return;
+        }
+
+        var duration = 8;
+        btn.disabled = true;
+        var originalText = "Run";
+
+        function tick() {
+          btn.textContent = "Running... " + duration + "s";
+          duration--;
+          if (duration < 0) {
+            clearInterval(timer);
+            finishRun();
+          }
+        }
+
+        tick();
+        var timer = setInterval(tick, 1000);
+
+        function finishRun() {
+          btn.disabled = false;
+          btn.textContent = originalText;
+          st.runsToday += 1;
+
+          var rate = cfg.rateMin + Math.random() * (cfg.rateMax - cfg.rateMin);
+          var profit = cfg.baseAmount * (rate / 100) / Math.max(cfg.maxRuns, 1);
+          st.todayProfit += profit;
+
+          if (window.DemoWallet && typeof window.DemoWallet.addIncome === 'function') {
+            // Each successful run adds 1 USDT demo income to the user's wallet
+            window.DemoWallet.addIncome(1);
+          }
+
+
+          state.levels[i] = st;
+          saveState();
+          updateSummary();
+
+          alert(
+            "Run completed. Profit +" +
+              profit.toFixed(2) +
+              " USDT (rate approx " +
+              rate.toFixed(2) +
+              "%)"
+          );
+        }
+      });
+    });
+  })();
+</script>
+
+<script src="auth.js"></script>
+<script src="common-nav.js"></script>
 </body>
 </html>
