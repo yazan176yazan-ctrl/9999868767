@@ -419,22 +419,17 @@ function getTransactions() {
     var todayIncome = bucket.todayIncome || 0;
     var totalIncome = bucket.totalIncome || 0;
 
-    var generations = { 1: { effective: 0, percent: 0, income: 0 },
-                        2: { effective: 0, percent: 0, income: 0 },
-                        3: { effective: 0, percent: 0, income: 0 } };
+    var generations = {
+      1: { effective: 0, percent: 20, income: 0 },
+      2: { effective: 0, percent: 5, income: 0 },
+      3: { effective: 0, percent: 3, income: 0 }
+    };
 
     members.forEach(function (m) {
       var g = m.generation || 1;
       if (g === 1 || g === 2 || g === 3) {
         generations[g].effective += 1;
       }
-    });
-
-    [1,2,3].forEach(function (g) {
-      var genInfo = generations[g];
-      var totalGen = genInfo.effective;
-      genInfo.percent = totalGen > 0 ? 100 : 0;
-      genInfo.income = 0;
     });
 
     return {
@@ -448,6 +443,16 @@ function getTransactions() {
 
   function getTeamSummary() {
     return computeTeamSummary();
+  }
+ });
+
+    return {
+      teamSize: members.length,
+      todayIncome: todayIncome,
+      totalIncome: totalIncome,
+      generations: generations,
+      members: members
+    };
   }
 
 
