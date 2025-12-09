@@ -502,5 +502,46 @@
       });
     })();
   </script>
+
+  <script src="wallet.js"></script>
+  <script>
+    (function () {
+      function applyTeamInfo() {
+        if (!window.DemoWallet || !window.DemoWallet.getTeamSummary) return;
+        var summary = window.DemoWallet.getTeamSummary();
+
+        var summaryValues = document.querySelectorAll(".summary-box .summary-value");
+        if (summaryValues.length >= 2) {
+          summaryValues[0].textContent = (summary.teamSize || 0) + "/1";
+          summaryValues[1].textContent = (summary.todayIncome || 0) + "/" + (summary.totalIncome || 0);
+        }
+
+        var cards = document.querySelectorAll(".generation-card");
+        if (cards.length >= 3 && summary.generations) {
+          [1, 2, 3].forEach(function (g, idx) {
+            var card = cards[idx];
+            if (!card) return;
+            var row = card.querySelector(".generation-values");
+            if (!row) return;
+            var spans = row.querySelectorAll("span");
+            var genInfo = summary.generations[g];
+            if (!genInfo) return;
+            if (spans.length >= 3) {
+              spans[0].textContent = (genInfo.effective || 0) + "/1";
+              spans[1].textContent = (genInfo.percent || 0) + "%";
+              spans[2].textContent = (genInfo.income || 0) + "/0";
+            }
+          });
+        }
+      }
+
+      if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", applyTeamInfo);
+      } else {
+        applyTeamInfo();
+      }
+    })();
+  </script>
+
 </body>
 </html>

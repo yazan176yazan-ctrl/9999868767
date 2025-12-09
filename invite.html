@@ -312,5 +312,30 @@
   </script>
 
   <script src="common-nav.js"></script>
+
+  <script src="wallet.js"></script>
+  <script>
+    (function () {
+      function applyInviteInfo() {
+        if (!window.DemoWallet || !window.DemoWallet.getInviteInfo) return;
+        var info = window.DemoWallet.getInviteInfo();
+        var linkEl = document.getElementById("inviteLink");
+        var codeEl = document.getElementById("inviteCode");
+        if (linkEl && info.link) {
+          linkEl.textContent = info.link;
+        }
+        if (codeEl && info.code) {
+          codeEl.textContent = info.code;
+        }
+      }
+
+      if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", applyInviteInfo);
+      } else {
+        applyInviteInfo();
+      }
+    })();
+  </script>
+
 </body>
 </html>

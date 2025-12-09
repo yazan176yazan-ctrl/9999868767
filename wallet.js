@@ -254,3 +254,272 @@ function getTransactions() {
     getTransactions: getTransactions
   };
 })(window);
+
+
+/**
+ * Extra demo logic: user profile, invite, team, and VIP levels.
+ * All data is stored locally in the browser (localStorage) for demo purposes only.
+ */
+(function (window) {
+  var USER_KEY = "demoUser_v1";
+
+  function randomCode(len) {
+    var chars = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+    var out = "";
+    for (var i = 0; i < len; i++) {
+      out += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return out;
+  }
+
+  function loadUser() {
+    try {
+      var raw = localStorage.getItem(USER_KEY);
+      if (!raw) return null;
+      var obj = JSON.parse(raw);
+      if (!obj || typeof obj !== "object") return null;
+      return obj;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function saveUser(u) {
+    try {
+      localStorage.setItem(USER_KEY, JSON.stringify(u || {}));
+    } catch (e) {}
+  }
+
+  function ensureUser() {
+    var u = loadUser();
+    if (!u) {
+      u = {
+        id: "U" + Date.now(),
+        inviteCode: randomCode(6),
+        team: {
+          members: [],          // demo-only list of referred users
+          todayIncome: 0,
+          totalIncome: 0,
+          perGeneration: {
+            "1": { percent: 0, income: 0 },
+            "2": { percent: 0, income: 0 },
+            "3": { percent: 0, income: 0 }
+          }
+        }
+      };
+      saveUser(u);
+    }
+    if (!u.team) {
+      u.team = {
+        members: [],
+        todayIncome: 0,
+        totalIncome: 0,
+        perGeneration: {
+          "1": { percent: 0, income: 0 },
+          "2": { percent: 0, income: 0 },
+          "3": { percent: 0, income: 0 }
+        }
+      };
+    }
+    if (!u.team.members) u.team.members = [];
+    return u;
+  }
+
+  function getUserProfile() {
+    return ensureUser();
+  }
+
+  function getInviteInfo() {
+    var u = ensureUser();
+    var code = u.inviteCode;
+    var base = "https://exarai.online/register/";
+    return {
+      code: code,
+      link: base + code
+    };
+  }
+
+  /**
+   * Demo hook: record that a new user registered using a given invite code.
+   * In a real project this must be done on a backend server.
+   * Here we only support a local demo scenario.
+   */
+  function registerReferral(inviteCode, info) {
+    if (!inviteCode) return false;
+    var u = ensureUser();
+    if (u.inviteCode !== String(inviteCode).trim()) {
+      // In real life, we would need to lookup another user.
+      // In this pure-local demo we only support "self" referral tracking.
+      return false;
+    }
+    var members = u.team.members || [];
+    var now = new Date();
+    var item = {
+      account: (info && info.account) || ("demo" + (members.length + 1)),
+      userId: (info && info.userId) || ("ID" + Date.now()),
+      level: (info && info.level) || 1,
+      generation: (info && info.generation) || 1,
+      registeredAt: (info && info.registeredAt) || now.toISOString().slice(0, 19).replace("T", " ")
+    };
+    members.push(item);
+    u.team.members = members;
+    saveUser(u);
+    return true;
+  }
+
+  function computeTeamSummary() {
+    var u = ensureUser();
+    var members = u.team && u.team.members ? u.team.members : [];
+    var todayIncome = (u.team && typeof u.team.todayIncome === "number") ? u.team.todayIncome : 0;
+    var totalIncome = (u.team && typeof u.team.totalIncome === "number") ? u.team.totalIncome : 0;
+
+    var generations = {};
+    [1, 2, 3].forEach(function (g) {
+      generations[g] = {
+        generation: g,
+        effective: 0,
+        percent: (u.team && u.team.perGeneration && u.team.perGeneration[String(g)] && u.team.perGeneration[String(g)].percent) || 0,
+        income: (u.team && u.team.perGeneration && u.team.perGeneration[String(g)] && u.team.perGeneration[String(g)].income) || 0
+      };
+    });
+
+    members.forEach(function (m) {
+      var g = m.generation || 1;
+      if (!generations[g]) return;
+      if (m.level && m.level >= 1) {
+        generations[g].effective += 1;
+      }
+    });
+
+    return {
+      teamSize: members.length,
+      todayIncome: todayIncome,
+      totalIncome: totalIncome,
+      generations: generations,
+      members: members
+    };
+  }
+
+  function getTeamSummary() {
+    return computeTeamSummary();
+  }
+
+  /**
+   * VIP levels & withdraw rules are computed on top of the wallet balance
+   * and number of "effective" users (level >= 1) in the team.
+   */
+  function computeVipInfo() {
+    var w = window.DemoWallet && window.DemoWallet.getWallet ? window.DemoWallet.getWallet() : { balance: 0 };
+    var u = ensureUser();
+    var members = u.team && u.team.members ? u.team.members : [];
+    var effectiveUsers = members.filter(function (m) {
+      return m.level && m.level >= 1;
+    }).length;
+
+    var balance = (typeof w.balance === "number" ? w.balance : 0);
+
+    var levels = [
+      { name: "V1", minBalance: 50,    minUsers: 5,  minWithdraw: 20, maxWithdraw: 500  },
+      { name: "V2", minBalance: 500,   minUsers: 5,  minWithdraw: 20, maxWithdraw: 1000 },
+      { name: "V3", minBalance: 3000,  minUsers: 10, minWithdraw: 20, maxWithdraw: 2000 },
+      { name: "V4", minBalance: 10000, minUsers: 10, minWithdraw: 20, maxWithdraw: 3000 },
+      { name: "V5", minBalance: 30000, minUsers: 10, minWithdraw: 20, maxWithdraw: 5000 },
+      { name: "V6", minBalance: 100000,minUsers: 10, minWithdraw: 20, maxWithdraw: 7000 }
+    ];
+
+    var current = "V0";
+    var currentRules = null;
+
+    for (var i = 0; i < levels.length; i++) {
+      var lv = levels[i];
+      if (balance >= lv.minBalance && effectiveUsers >= lv.minUsers) {
+        current = lv.name;
+        currentRules = lv;
+      } else {
+        break;
+      }
+    }
+
+    var next = null;
+    for (var j = 0; j < levels.length; j++) {
+      if (levels[j].name === current) {
+        next = levels[j + 1] ? levels[j + 1].name : null;
+        break;
+      }
+      if (current === "V0") {
+        next = levels[0].name;
+      }
+    }
+
+    var rulesByLevel = {};
+    levels.forEach(function (lv) {
+      rulesByLevel[lv.name] = {
+        minBalance: lv.minBalance,
+        minUsers: lv.minUsers,
+        minWithdraw: lv.minWithdraw,
+        maxWithdraw: lv.maxWithdraw,
+        feePercent: 5
+      };
+    });
+
+    return {
+      balance: balance,
+      effectiveUsers: effectiveUsers,
+      currentLevel: current,
+      nextLevel: next,
+      rulesByLevel: rulesByLevel
+    };
+  }
+
+  function getVipInfo() {
+    return computeVipInfo();
+  }
+
+  /**
+   * Helper to get withdraw rules for the current VIP level.
+   */
+  function getCurrentWithdrawRules() {
+    var info = computeVipInfo();
+    if (!info.currentLevel || !info.rulesByLevel[info.currentLevel]) {
+      return {
+        minWithdraw: 20,
+        maxWithdraw: 500,
+        feePercent: 5
+      };
+    }
+    var r = info.rulesByLevel[info.currentLevel];
+    return {
+      minWithdraw: r.minWithdraw,
+      maxWithdraw: r.maxWithdraw,
+      feePercent: r.feePercent
+    };
+  }
+
+  // Optional: wrapper for withdraw that respects VIP rules.
+  var originalWithdraw = window.DemoWallet && window.DemoWallet.withdraw
+    ? window.DemoWallet.withdraw
+    : null;
+
+  function vipAwareWithdraw(amount) {
+    if (!originalWithdraw) return false;
+    var rules = getCurrentWithdrawRules();
+    if (!amount || isNaN(amount) || amount <= 0) return false;
+    if (amount < rules.minWithdraw || amount > rules.maxWithdraw) {
+      return false;
+    }
+    return originalWithdraw(amount);
+  }
+
+  // Merge into existing DemoWallet object
+  if (!window.DemoWallet) {
+    window.DemoWallet = {};
+  }
+  window.DemoWallet.getUserProfile = getUserProfile;
+  window.DemoWallet.getInviteInfo = getInviteInfo;
+  window.DemoWallet.getTeamSummary = getTeamSummary;
+  window.DemoWallet.getVipInfo = getVipInfo;
+  window.DemoWallet.getCurrentWithdrawRules = getCurrentWithdrawRules;
+  window.DemoWallet.vipAwareWithdraw = vipAwareWithdraw;
+  window.DemoWallet.registerReferral = registerReferral;
+})(window);
+

@@ -942,5 +942,52 @@
 
 <script src="auth.js"></script>
 <script src="common-nav.js"></script>
+
+<script src="wallet.js"></script>
+<script>
+  (function () {
+    function applyVipInfo() {
+      if (!window.DemoWallet || !window.DemoWallet.getVipInfo) return;
+      var info = window.DemoWallet.getVipInfo();
+
+      var pillSpan = document.querySelector(".current-level-pill span");
+      if (pillSpan && info.currentLevel) {
+        pillSpan.textContent = "Current Member Level:" + info.currentLevel;
+      }
+
+      var nextLevelEl = document.querySelector(".next-level");
+      if (nextLevelEl) {
+        if (info.nextLevel) {
+          nextLevelEl.textContent = "Next Level:" + info.nextLevel;
+        } else {
+          nextLevelEl.textContent = "Max Level";
+        }
+      }
+
+      var sections = document.querySelectorAll(".vip-section");
+      var balance = typeof info.balance === "number" ? info.balance : 0;
+      var effectiveUsers = typeof info.effectiveUsers === "number" ? info.effectiveUsers : 0;
+
+      sections.forEach(function (sec) {
+        var level = sec.getAttribute("data-level");
+        var rules = info.rulesByLevel && info.rulesByLevel[level];
+        if (!rules) return;
+
+        var statValues = sec.querySelectorAll(".stat-card .stat-value");
+        if (statValues.length >= 2) {
+          statValues[0].textContent = balance + "/" + rules.minBalance;
+          statValues[1].textContent = effectiveUsers + "/" + rules.minUsers;
+        }
+      });
+    }
+
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", applyVipInfo);
+    } else {
+      applyVipInfo();
+    }
+  })();
+</script>
+
 </body>
 </html>
