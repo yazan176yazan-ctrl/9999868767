@@ -952,6 +952,15 @@
             console && console.warn && console.warn('Wallet signup bonus error', e);
           }
 
+
+          try {
+          if (window.DemoWallet && typeof window.DemoWallet.grantSignupBonusOnce === 'function') {
+            window.DemoWallet.grantSignupBonusOnce();
+          }
+          } catch (e) {
+            console && console.warn && console.warn('Wallet signup bonus error', e);
+          }
+
           try {
           if (window.ExaAuth) {
             var digits = phoneInput ? getPhoneDigits(phoneInput.value) : '';
@@ -966,9 +975,40 @@
               ExaAuth.setCurrentUser(userObj);
             }
           }
-        } catch (e) {
-          console && console.error && console.error('Auth signup error', e);
-        }
+          } catch (e) {
+            console && console.error && console.error('Auth signup error', e);
+          }
+
+          try {
+            if (window.DemoWallet && typeof window.DemoWallet.registerReferral === 'function') {
+              var digitsForTeam = phoneInput ? getPhoneDigits(phoneInput.value) : '';
+              var inviteCode = (function () {
+                try {
+                  var loc = window.location;
+                  var search = loc.search || '';
+                  if (search && search.charAt(0) === '?') {
+                    search = search.slice(1);
+                  }
+                  var params = new URLSearchParams(search);
+                  var c = params.get('code') || params.get('invite') || params.get('invitation');
+                  return c ? String(c).trim() : '';
+                } catch (e) {
+                  return '';
+                }
+              })();
+              if (inviteCode) {
+                window.DemoWallet.registerReferral(inviteCode, {
+                  account: digitsForTeam || 'phone',
+                  userId: uid || ('ID' + Date.now()),
+                  level: 1,
+                  generation: 1
+                });
+              }
+            }
+          } catch (e) {
+            console && console.error && console.error('Team registerReferral error', e);
+          }
+
           window.location.href = "my-assets.html";
         });
       }

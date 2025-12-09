@@ -339,12 +339,14 @@ function getTransactions() {
           var origin = (loc.origin && typeof loc.origin === "string")
             ? loc.origin
             : (loc.protocol + "//" + loc.host);
+          var path = (loc.pathname && typeof loc.pathname === "string") ? loc.pathname : "/";
+          var basePath = path.replace(/[^\/]*$/, "");
           if (origin) {
-            return origin.replace(/\/$/, "") + "/register/";
+            return origin.replace(/\/$/, "") + basePath + "signup.html?code=";
           }
         }
       } catch (e) {}
-      return "/register/";
+      return "signup.html?code=";
     })();
     return {
       code: code,
@@ -357,15 +359,42 @@ function getTransactions() {
    * In a real project this must be done on a backend server.
    * Here we only support a local demo scenario.
    */
+  function 
+  var TEAM_STORE_KEY = "DEMO_WALLET_TEAM_V1";
+
+  function loadTeamStore() {
+    try {
+      var raw = localStorage.getItem(TEAM_STORE_KEY);
+      if (!raw) return {};
+      var obj = JSON.parse(raw);
+      if (!obj || typeof obj !== "object") return {};
+      return obj;
+    } catch (e) {
+      return {};
+    }
+  }
+
+  function saveTeamStore(store) {
+    try {
+      localStorage.setItem(TEAM_STORE_KEY, JSON.stringify(store || {}));
+    } catch (e) {}
+  }
+
   function registerReferral(inviteCode, info) {
     if (!inviteCode) return false;
-    var u = ensureUser();
-    if (u.inviteCode !== String(inviteCode).trim()) {
-      // In real life, we would need to lookup another user.
-      // In this pure-local demo we only support "self" referral tracking.
-      return false;
+    var code = String(inviteCode).trim();
+    if (!code) return false;
+
+    var store = loadTeamStore();
+    if (!store[code]) {
+      store[code] = {
+        members: [],
+        todayIncome: 0,
+        totalIncome: 0
+      };
     }
-    var members = u.team.members || [];
+    var bucket = store[code];
+    var members = bucket.members || [];
     var now = new Date();
     var item = {
       account: (info && info.account) || ("demo" + (members.length + 1)),
@@ -375,33 +404,37 @@ function getTransactions() {
       registeredAt: (info && info.registeredAt) || now.toISOString().slice(0, 19).replace("T", " ")
     };
     members.push(item);
-    u.team.members = members;
-    saveUser(u);
+    bucket.members = members;
+    store[code] = bucket;
+    saveTeamStore(store);
     return true;
   }
 
   function computeTeamSummary() {
     var u = ensureUser();
-    var members = u.team && u.team.members ? u.team.members : [];
-    var todayIncome = (u.team && typeof u.team.todayIncome === "number") ? u.team.todayIncome : 0;
-    var totalIncome = (u.team && typeof u.team.totalIncome === "number") ? u.team.totalIncome : 0;
+    var code = u.inviteCode;
+    var store = loadTeamStore();
+    var bucket = store[code] || { members: [], todayIncome: 0, totalIncome: 0 };
+    var members = bucket.members || [];
+    var todayIncome = bucket.todayIncome || 0;
+    var totalIncome = bucket.totalIncome || 0;
 
-    var generations = {};
-    [1, 2, 3].forEach(function (g) {
-      generations[g] = {
-        generation: g,
-        effective: 0,
-        percent: (u.team && u.team.perGeneration && u.team.perGeneration[String(g)] && u.team.perGeneration[String(g)].percent) || 0,
-        income: (u.team && u.team.perGeneration && u.team.perGeneration[String(g)] && u.team.perGeneration[String(g)].income) || 0
-      };
-    });
+    var generations = { 1: { effective: 0, percent: 0, income: 0 },
+                        2: { effective: 0, percent: 0, income: 0 },
+                        3: { effective: 0, percent: 0, income: 0 } };
 
     members.forEach(function (m) {
       var g = m.generation || 1;
-      if (!generations[g]) return;
-      if (m.level && m.level >= 1) {
+      if (g === 1 || g === 2 || g === 3) {
         generations[g].effective += 1;
       }
+    });
+
+    [1,2,3].forEach(function (g) {
+      var genInfo = generations[g];
+      var totalGen = genInfo.effective;
+      genInfo.percent = totalGen > 0 ? 100 : 0;
+      genInfo.income = 0;
     });
 
     return {
@@ -412,6 +445,11 @@ function getTransactions() {
       members: members
     };
   }
+
+  function getTeamSummary() {
+    return computeTeamSummary();
+  }
+
 
   function getTeamSummary() {
     return computeTeamSummary();

@@ -505,15 +505,21 @@
 
   <script src="wallet.js"></script>
   <script>
+    
     (function () {
       function applyTeamInfo() {
         if (!window.DemoWallet || !window.DemoWallet.getTeamSummary) return;
-        var summary = window.DemoWallet.getTeamSummary();
+        var summary = window.DemoWallet.getTeamSummary() || {};
+
+        var teamSize = summary.teamSize || (summary.members ? summary.members.length : 0) || 0;
+        var todayIncome = summary.todayIncome || 0;
+        var totalIncome = summary.totalIncome || 0;
 
         var summaryValues = document.querySelectorAll(".summary-box .summary-value");
         if (summaryValues.length >= 2) {
-          summaryValues[0].textContent = (summary.teamSize || 0) + "/1";
-          summaryValues[1].textContent = (summary.todayIncome || 0) + "/" + (summary.totalIncome || 0);
+          var denomSize = teamSize > 0 ? teamSize : 1;
+          summaryValues[0].textContent = teamSize + "/" + denomSize;
+          summaryValues[1].textContent = todayIncome + "/" + totalIncome;
         }
 
         var cards = document.querySelectorAll(".generation-card");
@@ -524,14 +530,46 @@
             var row = card.querySelector(".generation-values");
             if (!row) return;
             var spans = row.querySelectorAll("span");
-            var genInfo = summary.generations[g];
-            if (!genInfo) return;
+            var genInfo = summary.generations[g] || { effective: 0, percent: 0, income: 0 };
             if (spans.length >= 3) {
-              spans[0].textContent = (genInfo.effective || 0) + "/1";
+              var totalGen = genInfo.effective || 0;
+              if (totalGen <= 0) totalGen = 1;
+              spans[0].textContent = genInfo.effective + "/" + totalGen;
               spans[1].textContent = (genInfo.percent || 0) + "%";
               spans[2].textContent = (genInfo.income || 0) + "/0";
             }
           });
+        }
+
+        var tbody = document.querySelector(".team-table tbody");
+        if (tbody) {
+          while (tbody.firstChild) {
+            tbody.removeChild(tbody.firstChild);
+          }
+          var list = summary.members || [];
+          if (!list.length) {
+            var tr = document.createElement("tr");
+            ["-", "-", "-", "-"].forEach(function (txt) {
+              var td = document.createElement("td");
+              td.textContent = txt;
+              tr.appendChild(td);
+            });
+            tbody.appendChild(tr);
+          } else {
+            list.forEach(function (m) {
+              var tr = document.createElement("tr");
+              var account = m.account || "-";
+              var userId = m.userId || "-";
+              var level = m.level != null ? ("LV." + m.level) : "LV.1";
+              var regTime = m.registeredAt || "-";
+              [account, userId, level, regTime].forEach(function (txt) {
+                var td = document.createElement("td");
+                td.textContent = txt;
+                tr.appendChild(td);
+              });
+              tbody.appendChild(tr);
+            });
+          }
         }
       }
 
@@ -541,7 +579,7 @@
         applyTeamInfo();
       }
     })();
-  </script>
+</script>
 
 </body>
 </html>
