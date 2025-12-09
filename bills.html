@@ -314,7 +314,7 @@
       </div>
 </main>
 </div>
-<script src="wallet.js"></script>
+<script src="auth.js"></script>
 <script>
   (function() {
     var container = document.getElementById('billsContainer');
@@ -436,12 +436,21 @@
     }
 
     function loadTransactions() {
-      if (!window.DemoWallet || typeof window.DemoWallet.getTransactions !== 'function') {
+      if (!window.ExaAuth || !ExaAuth.getCurrentUser) {
         showEmpty();
         return;
       }
 
-      var txs = DemoWallet.getTransactions();
+      var user = ExaAuth.getCurrentUser();
+      if (!user || !user.uid) {
+        showEmpty();
+        return;
+      }
+
+      var txs = ExaAuth.getUserTransactions
+        ? ExaAuth.getUserTransactions(user.uid)
+        : [];
+
       if (!txs || !txs.length) {
         showEmpty();
         return;

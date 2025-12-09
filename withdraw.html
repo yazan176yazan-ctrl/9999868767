@@ -81,7 +81,6 @@
   </div>
 
   
-  <script src="wallet.js"></script>
   <script>
     (function() {{
       var qtyInput = document.getElementById('qtyInput');
@@ -93,19 +92,20 @@
       var withdrawBtn = document.getElementById('withdrawBtn');
       var availableVal = document.getElementById('availableVal');
 
+      var currentUser = null;
       var balance = 0;
 
-      if (window.DemoWallet && typeof window.DemoWallet.getWallet === 'function') {
-        var w = DemoWallet.getWallet();
-        if (w && typeof w.balance === 'number') {
-          balance = w.balance;
-        }
-      }
+      if (window.ExaAuth) {{
+        currentUser = ExaAuth.getCurrentUser();
+        if (currentUser && typeof currentUser.usdtBalance === 'number') {{
+          balance = currentUser.usdtBalance;
+        }}
+      }}
 
       maxAvailable = balance;
-      if (availableVal) {
+      if (availableVal) {{
         availableVal.textContent = balance.toFixed(2) + ' USDT';
-      }
+      }}
 
       function updateValues() {{
         var v = parseFloat(qtyInput.value);
@@ -131,58 +131,73 @@
         }});
       }}
 
-      if (withdrawBtn) {
-        withdrawBtn.addEventListener('click', function() {
-          if (!window.DemoWallet || typeof window.DemoWallet.getWallet !== 'function' || typeof window.DemoWallet.withdraw !== 'function') {
-            alert('Internal error: wallet not available.');
+      if (withdrawBtn) {{
+        withdrawBtn.addEventListener('click', function() {{
+          if (!window.ExaAuth || !currentUser) {{
+            alert('Internal error: user not loaded.');
             return;
-          }
+          }}
 
           var v = parseFloat(qtyInput.value);
-          if (isNaN(v) || v <= 0) {
+          if (isNaN(v) || v <= 0) {{
             alert('Please enter a valid amount.');
             return;
-          }
+          }}
 
-          if (v < minQty) {
+          if (v < minQty) {{
             alert('The minimum withdrawal amount is ' + minQty + ' USDT.');
             return;
-          }
+          }}
 
-          if (v > balance) {
+          if (v > balance) {{
             alert('Insufficient balance.');
             return;
-          }
-
-          var wCheck = DemoWallet.getWallet();
-          if (!wCheck || typeof wCheck.totalIncome !== 'number' || wCheck.totalIncome < 6) {
-            alert('You can apply for withdrawal only after completing 6 AI computing power tasks.');
-            return;
-          }
+          }}
 
           var fee = v * 0.05;
           var received = v - fee;
 
-          var result = DemoWallet.withdraw(v);
-          if (!result) {
-            alert('Withdrawal failed, please try again.');
-            return;
-          }
+          var tx = {{
+            id: 'wd_' + Date.now(),
+            type: 'withdraw',
+            amount: v,
+            fee: fee,
+            net: received,
+            status: 'PENDING',
+            createdAt: new Date().toISOString()
+          }};
 
-          balance = result.balance || 0;
+          if (typeof ExaAuth.addTransaction === 'function') {{
+            ExaAuth.addTransaction(currentUser.uid, tx);
+          }}
+
+          // Update balances: deduct from available and move to frozen
+          var frozen = typeof currentUser.frozenBalance === 'number' ? currentUser.frozenBalance : 0;
+          balance = balance - v;
+          if (balance < 0) balance = 0;
+          currentUser.usdtBalance = parseFloat(balance.toFixed(2));
+          currentUser.frozenBalance = parseFloat((frozen + v).toFixed(2));
+
+          if (typeof ExaAuth.updateUser === 'function') {{
+            ExaAuth.updateUser(currentUser);
+          }} else {{
+            // fallback
+            ExaAuth.setCurrentUser(currentUser);
+          }}
+
           maxAvailable = balance;
-          if (availableVal) {
+          if (availableVal) {{
             availableVal.textContent = balance.toFixed(2) + ' USDT';
-          }
+          }}
 
-          if (qtyInput) {
+          if (qtyInput) {{
             qtyInput.value = '';
-          }
+          }}
           updateValues();
 
           alert('Withdrawal request submitted and is pending review.');
-        });
-      }
+        }});
+      }}
     }})();
   </script>
 

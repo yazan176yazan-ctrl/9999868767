@@ -768,7 +768,6 @@
 </div>
 </div>
 
-<script src="wallet.js"></script>
 <script>
   (function() {
     var gpuCardEls = document.querySelectorAll(".gpu-card");
@@ -979,12 +978,6 @@
           var rate = cfg.rateMin + Math.random() * (cfg.rateMax - cfg.rateMin);
           var profit = cfg.baseAmount * (rate / 100) / Math.max(cfg.maxRuns, 1);
           st.todayProfit += profit;
-
-          if (window.DemoWallet && typeof window.DemoWallet.addIncome === 'function') {
-            // Each successful run adds 1 USDT demo income to the user's wallet
-            window.DemoWallet.addIncome(1);
-          }
-
 
           state.levels[i] = st;
           saveState();

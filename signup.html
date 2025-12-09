@@ -559,7 +559,6 @@
 </div>
 </div>
 <div class="toast-message" id="form-toast"></div>
-<script src="wallet.js"></script>
 <script>
     document.addEventListener("DOMContentLoaded", function () {
       var backBtn = document.querySelector(".hero-button.back");
@@ -942,14 +941,6 @@
             }
             showToast("Verification code is incorrect.");
             return;
-          }
-
-          try {
-          if (window.DemoWallet && typeof window.DemoWallet.grantSignupBonusOnce === 'function') {
-            window.DemoWallet.grantSignupBonusOnce();
-          }
-          } catch (e) {
-            console && console.warn && console.warn('Wallet signup bonus error', e);
           }
 
           try {
