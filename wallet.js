@@ -353,8 +353,6 @@ function getInviteInfo() {
     };
   }
 
-
-
   /**
    * Demo hook: record that a new user registered using a given invite code.
    * In a real project this must be done on a backend server.
@@ -418,7 +416,7 @@ function getInviteInfo() {
 
   function getTeamSummary() {
     return computeTeamSummary();
-
+  }
 
   /**
    * VIP levels & withdraw rules are computed on top of the wallet balance
@@ -489,7 +487,7 @@ function getInviteInfo() {
 
   function getVipInfo() {
     return computeVipInfo();
-
+  }
 
   /**
    * Helper to get withdraw rules for the current VIP level.
