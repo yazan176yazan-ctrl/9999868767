@@ -80,32 +80,15 @@
     </main>
   </div>
 
-  
-  <script src="wallet.js"></script>
   <script>
     (function() {{
       var qtyInput = document.getElementById('qtyInput');
       var feeVal = document.getElementById('feeVal');
       var recvVal = document.getElementById('recvVal');
       var minQty = 20;
-      var maxAvailable = 0;
+      var maxAvailable = 3.06;
       var maxLink = document.getElementById('maxLink');
       var withdrawBtn = document.getElementById('withdrawBtn');
-      var availableVal = document.getElementById('availableVal');
-
-      var balance = 0;
-
-      if (window.DemoWallet && typeof window.DemoWallet.getWallet === 'function') {
-        var w = DemoWallet.getWallet();
-        if (w && typeof w.balance === 'number') {
-          balance = w.balance;
-        }
-      }
-
-      maxAvailable = balance;
-      if (availableVal) {
-        availableVal.textContent = balance.toFixed(2) + ' USDT';
-      }
 
       function updateValues() {{
         var v = parseFloat(qtyInput.value);
@@ -120,74 +103,19 @@
         recvVal.textContent = received.toFixed(2);
       }}
 
-      if (qtyInput) {{
-        qtyInput.addEventListener('input', updateValues);
-      }}
+      qtyInput.addEventListener('input', updateValues);
 
-      if (maxLink) {{
-        maxLink.addEventListener('click', function() {{
-          qtyInput.value = maxAvailable.toFixed(2);
-          updateValues();
-        }});
-      }}
+      maxLink.addEventListener('click', function() {{
+        qtyInput.value = maxAvailable.toFixed(2);
+        updateValues();
+      }});
 
-      if (withdrawBtn) {
-        withdrawBtn.addEventListener('click', function() {
-          if (!window.DemoWallet || typeof window.DemoWallet.getWallet !== 'function' || typeof window.DemoWallet.withdraw !== 'function') {
-            alert('Internal error: wallet not available.');
-            return;
-          }
-
-          var v = parseFloat(qtyInput.value);
-          if (isNaN(v) || v <= 0) {
-            alert('Please enter a valid amount.');
-            return;
-          }
-
-          if (v < minQty) {
-            alert('The minimum withdrawal amount is ' + minQty + ' USDT.');
-            return;
-          }
-
-          if (v > balance) {
-            alert('Insufficient balance.');
-            return;
-          }
-
-          var wCheck = DemoWallet.getWallet();
-          if (!wCheck || typeof wCheck.totalIncome !== 'number' || wCheck.totalIncome < 6) {
-            alert('You can apply for withdrawal only after completing 6 AI computing power tasks.');
-            return;
-          }
-
-          var fee = v * 0.05;
-          var received = v - fee;
-
-          var result = DemoWallet.withdraw(v);
-          if (!result) {
-            alert('Withdrawal failed, please try again.');
-            return;
-          }
-
-          balance = result.balance || 0;
-          maxAvailable = balance;
-          if (availableVal) {
-            availableVal.textContent = balance.toFixed(2) + ' USDT';
-          }
-
-          if (qtyInput) {
-            qtyInput.value = '';
-          }
-          updateValues();
-
-          alert('Withdrawal request submitted and is pending review.');
-        });
-      }
+      withdrawBtn.addEventListener('click', function() {{
+        alert('Demo only: withdrawal request submitted.');
+      }});
     }})();
   </script>
 
-
-  <script src="auth.js"></script>
-<script src="common-nav.js"></script>
+  <script src="common-nav.js"></script>
 </body>
 </html>
