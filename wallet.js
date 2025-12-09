@@ -329,14 +329,30 @@ function getTransactions() {
     return ensureUser();
   }
 
-  function getInviteInfo() {
+  
+function getInviteInfo() {
     var u = ensureUser();
     var code = u.inviteCode;
-    var base = "https://exarai.online/register/";
+    var base = (function () {
+      try {
+        if (typeof window !== "undefined" && window.location) {
+          var loc = window.location;
+          var origin = (loc.origin && typeof loc.origin === "string")
+            ? loc.origin
+            : (loc.protocol + "//" + loc.host);
+          if (origin) {
+            return origin.replace(/\/$/, "") + "/register/";
+          }
+        }
+      } catch (e) {}
+      return "/register/";
+    })();
     return {
       code: code,
       link: base + code
     };
+  }
+
   }
 
   /**
