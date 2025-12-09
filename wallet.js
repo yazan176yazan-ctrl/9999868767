@@ -359,7 +359,6 @@ function getTransactions() {
    * In a real project this must be done on a backend server.
    * Here we only support a local demo scenario.
    */
-  function 
   var TEAM_STORE_KEY = "DEMO_WALLET_TEAM_V1";
 
   function loadTeamStore() {
@@ -386,15 +385,12 @@ function getTransactions() {
     if (!code) return false;
 
     var store = loadTeamStore();
-    if (!store[code]) {
-      store[code] = {
-        members: [],
-        todayIncome: 0,
-        totalIncome: 0
-      };
+    if (!store.members) {
+      store.members = [];
+      store.todayIncome = store.todayIncome || 0;
+      store.totalIncome = store.totalIncome || 0;
     }
-    var bucket = store[code];
-    var members = bucket.members || [];
+    var members = store.members;
     var now = new Date();
     var item = {
       account: (info && info.account) || ("demo" + (members.length + 1)),
@@ -404,20 +400,16 @@ function getTransactions() {
       registeredAt: (info && info.registeredAt) || now.toISOString().slice(0, 19).replace("T", " ")
     };
     members.push(item);
-    bucket.members = members;
-    store[code] = bucket;
+    store.members = members;
     saveTeamStore(store);
     return true;
   }
 
   function computeTeamSummary() {
-    var u = ensureUser();
-    var code = u.inviteCode;
     var store = loadTeamStore();
-    var bucket = store[code] || { members: [], todayIncome: 0, totalIncome: 0 };
-    var members = bucket.members || [];
-    var todayIncome = bucket.todayIncome || 0;
-    var totalIncome = bucket.totalIncome || 0;
+    var members = store.members || [];
+    var todayIncome = store.todayIncome || 0;
+    var totalIncome = store.totalIncome || 0;
 
     var generations = {
       1: { effective: 0, percent: 20, income: 0 },
@@ -440,21 +432,6 @@ function getTransactions() {
       members: members
     };
   }
-
-  function getTeamSummary() {
-    return computeTeamSummary();
-  }
- });
-
-    return {
-      teamSize: members.length,
-      todayIncome: todayIncome,
-      totalIncome: totalIncome,
-      generations: generations,
-      members: members
-    };
-  }
-
 
   function getTeamSummary() {
     return computeTeamSummary();
