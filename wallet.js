@@ -27,6 +27,38 @@
     } catch (e) {}
   }
 
+var TX_KEY = STORAGE_KEY + "_txs";
+
+function loadTransactions() {
+  try {
+    var raw = localStorage.getItem(TX_KEY);
+    if (!raw) return [];
+    var arr = JSON.parse(raw);
+    if (!Array.isArray(arr)) return [];
+    return arr;
+  } catch (e) {
+    return [];
+  }
+}
+
+function saveTransactions(list) {
+  try {
+    localStorage.setItem(TX_KEY, JSON.stringify(list || []));
+  } catch (e) {}
+}
+
+function addTransaction(tx) {
+  if (!tx || typeof tx !== "object") return;
+  var list = loadTransactions();
+  var now = new Date().toISOString();
+  if (!tx.id) tx.id = "tx_" + Date.now() + "_" + Math.floor(Math.random() * 100000);
+  if (!tx.createdAt) tx.createdAt = now;
+  if (!tx.status) tx.status = "SUCCESS";
+  list.push(tx);
+  saveTransactions(list);
+  return tx;
+}
+
   function ensure() {
     var w = load();
     if (!w) {
@@ -75,6 +107,13 @@ function grantSignupBonusOnce() {
     w.todayIncome += bonus;
     localStorage.setItem(flagKey, "1");
     localStorage.setItem(STORAGE_KEY, JSON.stringify(w));
+    addTransaction({
+      type: "income",
+      amount: bonus,
+      currency: "USDT",
+      net: bonus,
+      source: "signup-bonus"
+    });
     return w;
   } catch (e) {
     return ensure();
@@ -93,6 +132,13 @@ function grantSignupBonusOnce() {
     w.totalIncome += amount;
     w.todayIncome += amount;
     save(w);
+    addTransaction({
+      type: "income",
+      amount: amount,
+      currency: "USDT",
+      net: amount,
+      source: "ai-power"
+    });
     return w;
   }
 
@@ -103,6 +149,14 @@ function grantSignupBonusOnce() {
     w.balance -= amount;
     if (w.balance < 0) w.balance = 0;
     save(w);
+    addTransaction({
+      type: "withdraw",
+      amount: amount,
+      currency: "USDT",
+      fee: amount * 0.05,
+      net: amount * 0.95,
+      status: "PENDING"
+    });
     return w;
   }
 
@@ -175,11 +229,28 @@ function grantSignupBonusOnce() {
     });
   }
 
+function recordSwap(fromToken, toToken, amountFrom, amountTo) {
+  addTransaction({
+    type: "swap",
+    amount: amountFrom,
+    currency: String(fromToken || "USDT").toUpperCase(),
+    net: amountTo,
+    toCurrency: String(toToken || "USDT").toUpperCase(),
+    status: "SUCCESS"
+  });
+}
+
+function getTransactions() {
+  return loadTransactions();
+}
+
   window.DemoWallet = {
     getWallet: getWallet,
     addIncome: addIncome,
     applyToAssetsPage: applyToAssetsPage,
     grantSignupBonusOnce: grantSignupBonusOnce,
-    withdraw: withdraw
+    withdraw: withdraw,
+    recordSwap: recordSwap,
+    getTransactions: getTransactions
   };
 })(window);

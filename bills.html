@@ -314,10 +314,205 @@
       </div>
 </main>
 </div>
-<script src="auth.js"></script>
-
-
 <script src="wallet.js"></script>
+<script>
+  (function() {
+    var container = document.getElementById('billsContainer');
+    var startInput = document.getElementById('startDate');
+    var endInput = document.getElementById('endDate');
+    var resetBtn = document.querySelector('.btn-reset');
+    var confirmBtn = document.querySelector('.btn-confirm');
+    var typeRow = document.getElementById('typeRow');
+    var typeLabel = document.getElementById('typeLabel');
+    var currencyRow = document.getElementById('currencyRow');
+    var currencyLabel = document.getElementById('currencyLabel');
+    var backBtn = document.querySelector('.back-btn');
+
+    if (!container) return;
+
+    if (backBtn) {
+      backBtn.addEventListener('click', function () {
+        if (window.history.length > 1) {
+          window.history.back();
+        }
+      });
+    }
+
+    var allTxs = [];
+    var filters = {
+      startDate: '',
+      endDate: '',
+      type: 'all',
+      currency: 'USDT'
+    };
+
+    function showEmpty() {
+      container.className = 'empty-state';
+      container.textContent = 'No bills yet.';
+    }
+
+    function renderBills(list) {
+      if (!list || !list.length) {
+        showEmpty();
+        return;
+      }
+
+      container.className = 'bill-list';
+      container.innerHTML = '';
+
+      list.forEach(function(tx) {
+        var item = document.createElement('div');
+        item.className = 'bill-item';
+
+        var typeLabelText = tx.type === 'withdraw' ? 'Withdraw' :
+                            tx.type === 'deposit' ? 'Deposit' :
+                            tx.type === 'income' ? 'Income' :
+                            tx.type === 'swap' ? 'Swap' :
+                            (tx.type || 'Record');
+
+        var status = tx.status || 'PENDING';
+        var createdAt = tx.createdAt ? tx.createdAt.replace('T', ' ').slice(0, 19) : '';
+
+        var amount = (typeof tx.amount === 'number'
+          ? tx.amount.toFixed(2)
+          : String(tx.amount || '0'));
+        var currency = (tx.currency || filters.currency || 'USDT').toUpperCase();
+        var amountStr = amount + ' ' + currency;
+
+        var feeStr = typeof tx.fee === 'number' ? tx.fee.toFixed(2) + ' ' + currency : '';
+        var netStr = typeof tx.net === 'number' ? tx.net.toFixed(2) + ' ' + currency : '';
+
+        item.innerHTML =
+          '<div class="bill-main-row">' +
+            '<span class="bill-type">' + typeLabelText + '</span>' +
+            '<span class="bill-amount">' + amountStr + '</span>' +
+          '</div>' +
+          '<div class="bill-sub-row">' +
+            '<span class="bill-status">' + status + '</span>' +
+            (createdAt ? '<span class="bill-time">' + createdAt + '</span>' : '') +
+          '</div>' +
+          (feeStr || netStr
+            ? '<div class="bill-sub-row">' +
+                (feeStr ? '<span class="bill-fee">Fee: ' + feeStr + '</span>' : '') +
+                (netStr ? '<span class="bill-net">Net: ' + netStr + '</span>' : '') +
+              '</div>'
+            : '');
+
+        container.appendChild(item);
+      });
+    }
+
+    function applyFilters() {
+      if (!allTxs.length) {
+        showEmpty();
+        return;
+      }
+
+      var filtered = allTxs.filter(function(tx) {
+        var createdAt = tx.createdAt ? new Date(tx.createdAt) : null;
+
+        if (filters.startDate && createdAt) {
+          var start = new Date(filters.startDate + 'T00:00:00');
+          if (createdAt < start) return false;
+        }
+        if (filters.endDate && createdAt) {
+          var end = new Date(filters.endDate + 'T23:59:59');
+          if (createdAt > end) return false;
+        }
+
+        if (filters.type && filters.type !== 'all') {
+          if (!tx.type || tx.type.toLowerCase() !== filters.type) return false;
+        }
+
+        if (filters.currency) {
+          var txCurrency = (tx.currency || 'USDT').toUpperCase();
+          if (txCurrency !== filters.currency.toUpperCase()) return false;
+        }
+
+        return true;
+      });
+
+      renderBills(filtered);
+    }
+
+    function loadTransactions() {
+      if (!window.DemoWallet || typeof window.DemoWallet.getTransactions !== 'function') {
+        showEmpty();
+        return;
+      }
+
+      var txs = DemoWallet.getTransactions();
+      if (!txs || !txs.length) {
+        showEmpty();
+        return;
+      }
+
+      allTxs = txs.slice().sort(function(a, b) {
+        if (!a.createdAt || !b.createdAt) return 0;
+        return a.createdAt < b.createdAt ? 1 : -1;
+      });
+
+      applyFilters();
+    }
+
+    if (resetBtn) {
+      resetBtn.addEventListener('click', function() {
+        if (startInput) startInput.value = '';
+        if (endInput) endInput.value = '';
+        filters.startDate = '';
+        filters.endDate = '';
+        filters.type = 'all';
+        filters.currency = 'USDT';
+        if (typeLabel) typeLabel.textContent = 'All';
+        if (currencyLabel) currencyLabel.textContent = 'USDT';
+        applyFilters();
+      });
+    }
+
+    if (confirmBtn) {
+      confirmBtn.addEventListener('click', function() {
+        if (startInput) filters.startDate = startInput.value || '';
+        if (endInput) filters.endDate = endInput.value || '';
+        applyFilters();
+      });
+    }
+
+    if (typeRow) {
+      var typeOptions = ['all', 'deposit', 'withdraw', 'swap'];
+      var typeLabels = {
+        'all': 'All',
+        'deposit': 'Deposit',
+        'withdraw': 'Withdraw',
+        'swap': 'Swap'
+      };
+      var index = 0;
+
+      typeRow.addEventListener('click', function() {
+        index = (index + 1) % typeOptions.length;
+        var key = typeOptions[index];
+        filters.type = key;
+        if (typeLabel) typeLabel.textContent = typeLabels[key];
+        applyFilters();
+      });
+    }
+
+    if (currencyRow) {
+      var currencyOptions = ['USDT', 'BTC', 'ETH', 'USDC', 'TRX'];
+      var currencyIndex = 0;
+
+      currencyRow.addEventListener('click', function () {
+        currencyIndex = (currencyIndex + 1) % currencyOptions.length;
+        var cur = currencyOptions[currencyIndex];
+        filters.currency = cur;
+        if (currencyLabel) currencyLabel.textContent = cur;
+        applyFilters();
+      });
+    }
+
+    loadTransactions();
+  })();
+</script>
+
 <script src="common-nav.js"></script>
 </body>
 </html>
