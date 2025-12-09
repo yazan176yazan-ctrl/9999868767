@@ -329,8 +329,7 @@ function getTransactions() {
     return ensureUser();
   }
 
-  
-function getInviteInfo() {
+  function getInviteInfo() {
     var u = ensureUser();
     var code = u.inviteCode;
     var base = (function () {
