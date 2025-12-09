@@ -332,7 +332,14 @@ function getTransactions() {
   function getInviteInfo() {
     var u = ensureUser();
     var code = u.inviteCode;
-    var base = "https://exarai.online/register/";
+    var base = (function () {
+      try {
+        if (window && window.location && window.location.origin) {
+          return window.location.origin.replace(/\/$/, "") + "/register/";
+        }
+      } catch (e) {}
+      return "https://exarai.online/register/";
+    })();
     return {
       code: code,
       link: base + code
@@ -365,6 +372,53 @@ function getTransactions() {
     u.team.members = members;
     saveUser(u);
     return true;
+  }
+
+
+
+  var REF_URL_KEY_PREFIX = USER_KEY + "_ref_url_";
+  function extractInviteCodeFromUrl() {
+    try {
+      if (!window || !window.location) return null;
+      var loc = window.location;
+      var path = loc.pathname || "";
+      var match = path.match(/\\/register\\/([^\/?#]+)/i);
+      var code = match && match[1] ? match[1] : null;
+      if (!code) {
+        var search = loc.search || "";
+        if (search && search.charAt(0) === "?") {
+          search = search.slice(1);
+        }
+        var params = new URLSearchParams(search);
+        code = params.get("code") || params.get("invite") || params.get("invitation");
+      }
+      if (!code) return null;
+      return decodeURIComponent(String(code)).trim();
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function autoRegisterFromUrlIfAny() {
+    var code = extractInviteCodeFromUrl();
+    if (!code) return false;
+    try {
+      var flagKey = REF_URL_KEY_PREFIX + String(code);
+      if (window.localStorage && localStorage.getItem(flagKey) === "1") {
+        return false;
+      }
+      var ok = registerReferral(code, {
+        account: "user" + Date.now(),
+        userId: "ID" + Date.now(),
+        generation: 1
+      });
+      if (ok && window.localStorage) {
+        localStorage.setItem(flagKey, "1");
+      }
+      return ok;
+    } catch (e) {
+      return false;
+    }
   }
 
   function computeTeamSummary() {
@@ -521,5 +575,14 @@ function getTransactions() {
   window.DemoWallet.getCurrentWithdrawRules = getCurrentWithdrawRules;
   window.DemoWallet.vipAwareWithdraw = vipAwareWithdraw;
   window.DemoWallet.registerReferral = registerReferral;
+  window.DemoWallet.autoRegisterFromUrlIfAny = autoRegisterFromUrlIfAny;
 })(window);
+
+(function () {
+  try {
+    if (window.DemoWallet && typeof window.DemoWallet.autoRegisterFromUrlIfAny === "function") {
+      window.DemoWallet.autoRegisterFromUrlIfAny();
+    }
+  } catch (e) {}
+})();
 
