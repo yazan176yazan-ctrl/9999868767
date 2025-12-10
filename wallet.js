@@ -67,7 +67,14 @@ function addTransaction(tx) {
         balance: 3,
         totalIncome: 0,
         todayIncome: 0,
-        lastIncomeDate: todayStr()
+        lastIncomeDate: todayStr(),
+        tokens: {
+          USDT: 3,
+          USDC: 0,
+          BTC: 0,
+          ETH: 0,
+          TRX: 0
+        }
       };
       save(w);
       return w;
@@ -81,6 +88,19 @@ function addTransaction(tx) {
     if (typeof w.balance !== "number") w.balance = 0;
     if (typeof w.totalIncome !== "number") w.totalIncome = 0;
     if (typeof w.todayIncome !== "number") w.todayIncome = 0;
+    if (!w.tokens || typeof w.tokens !== "object") {
+      w.tokens = {
+        USDT: w.balance,
+        USDC: 0,
+        BTC: 0,
+        ETH: 0,
+        TRX: 0
+      };
+    } else {
+      if (typeof w.tokens.USDT !== "number") w.tokens.USDT = w.balance;
+      w.balance = w.tokens.USDT;
+    }
+    save(w);
     return w;
   }
 
@@ -96,6 +116,15 @@ function grantSignupBonusOnce() {
       return ensure();
     }
     var w = ensure();
+    if (!w.tokens || typeof w.tokens !== "object") {
+      w.tokens = { USDT: w.balance, USDC: 0, BTC: 0, ETH: 0, TRX: 0 };
+    }
+    if (!w.tokens || typeof w.tokens !== "object") {
+      w.tokens = { USDT: w.balance, USDC: 0, BTC: 0, ETH: 0, TRX: 0 };
+    }
+    if (!w.tokens || typeof w.tokens !== "object") {
+      w.tokens = { USDT: w.balance, USDC: 0, BTC: 0, ETH: 0, TRX: 0 };
+    }
     var t = todayStr();
     if (w.lastIncomeDate !== t) {
       w.todayIncome = 0;
@@ -103,6 +132,7 @@ function grantSignupBonusOnce() {
     }
     var bonus = 5;
     w.balance += bonus;
+    w.tokens.USDT = (w.tokens.USDT || 0) + bonus;
     w.totalIncome += bonus;
     w.todayIncome += bonus;
     localStorage.setItem(flagKey, "1");
@@ -123,12 +153,16 @@ function grantSignupBonusOnce() {
   function addIncome(amount) {
     if (!amount || isNaN(amount)) amount = 0;
     var w = ensure();
+    if (!w.tokens || typeof w.tokens !== "object") {
+      w.tokens = { USDT: w.balance, USDC: 0, BTC: 0, ETH: 0, TRX: 0 };
+    }
     var t = todayStr();
     if (w.lastIncomeDate !== t) {
       w.todayIncome = 0;
       w.lastIncomeDate = t;
     }
     w.balance += amount;
+    w.tokens.USDT = (w.tokens.USDT || 0) + amount;
     w.totalIncome += amount;
     w.todayIncome += amount;
     save(w);
@@ -144,9 +178,13 @@ function grantSignupBonusOnce() {
 
   function withdraw(amount) {
     var w = ensure();
+    if (!w.tokens || typeof w.tokens !== "object") {
+      w.tokens = { USDT: w.balance, USDC: 0, BTC: 0, ETH: 0, TRX: 0 };
+    }
     if (!amount || isNaN(amount) || amount <= 0) return false;
     if (w.balance < amount) return false;
     w.balance -= amount;
+    w.tokens.USDT = Math.max(0, (w.tokens.USDT || 0) - amount);
     if (w.balance < 0) w.balance = 0;
     save(w);
     addTransaction({
@@ -169,6 +207,9 @@ function grantSignupBonusOnce() {
 
   function applyToAssetsPage() {
     var w = ensure();
+    if (!w.tokens || typeof w.tokens !== "object") {
+      w.tokens = { USDT: w.balance, USDC: 0, BTC: 0, ETH: 0, TRX: 0 };
+    }
 
     // Main balance and donut
     var balanceEl = document.querySelector(".assets-usdt-balance");
@@ -202,32 +243,61 @@ function grantSignupBonusOnce() {
       todayTeam.textContent = "0 USDT";
     }
 
-    // Currency list: first row (USDT) shows current balance, others 0
+    // Currency list: show per-token balances
     var rows = document.querySelectorAll(".currency-list .currency-row");
     if (rows && rows.length) {
-      rows.forEach(function (row, index) {
+      rows.forEach(function (row) {
+        var nameEl = row.querySelector(".currency-name");
         var amountEl = row.querySelector(".currency-amount");
-        if (!amountEl) return;
-        if (index === 0) {
-          amountEl.textContent = formatUsdt(w.balance);
-        } else {
-          amountEl.textContent = "0";
-        }
+        if (!nameEl || !amountEl) return;
+        var sym = nameEl.textContent.trim().toUpperCase();
+        var val = tokens[sym] || 0;
+        amountEl.textContent = formatUsdt(val);
       });
     }
 
-    // Token percentages: all balance in USDT for the demo
+    // Token percentages based on token balances
     var tokenRows = document.querySelectorAll(".token-row");
-    tokenRows.forEach(function (row, index) {
+    tokenRows.forEach(function (row) {
+      var nameEl = row.querySelector(".token-name");
       var percentEl = row.querySelector(".token-percent");
-      if (!percentEl) return;
-      if (index === 0) {
-        percentEl.textContent = "100%";
-      } else {
-        percentEl.textContent = "0.00%";
-      }
+      if (!nameEl || !percentEl) return;
+      var sym = nameEl.textContent.trim().toUpperCase();
+      var val = tokens[sym] || 0;
+      var p = total > 0 ? (val / total) * 100 : 0;
+      percentEl.textContent = p.toFixed(2) + "%";
     });
   }
+
+
+function getTokenBalances() {
+  var w = ensure();
+  var tokens = w.tokens || { USDT: w.balance || 0 };
+  return Object.assign({ USDT: 0, USDC: 0, BTC: 0, ETH: 0, TRX: 0 }, tokens);
+}
+
+function applySwap(fromToken, toToken, amountFrom, amountTo) {
+  var w = ensure();
+  if (!w.tokens || typeof w.tokens !== "object") {
+    w.tokens = { USDT: w.balance || 0, USDC: 0, BTC: 0, ETH: 0, TRX: 0 };
+  }
+  var tokens = w.tokens;
+  fromToken = String(fromToken || "USDT").toUpperCase();
+  toToken = String(toToken || "USDT").toUpperCase();
+  amountFrom = Number(amountFrom) || 0;
+  amountTo = Number(amountTo) || 0;
+  if (amountFrom <= 0 || amountTo <= 0) return w;
+  if (typeof tokens[fromToken] !== "number") tokens[fromToken] = 0;
+  if (typeof tokens[toToken] !== "number") tokens[toToken] = 0;
+  if (tokens[fromToken] < amountFrom) return w;
+  tokens[fromToken] -= amountFrom;
+  tokens[toToken] += amountTo;
+  if (typeof tokens.USDT === "number") {
+    w.balance = tokens.USDT;
+  }
+  save(w);
+  return w;
+}
 
 function recordSwap(fromToken, toToken, amountFrom, amountTo) {
   addTransaction({
@@ -246,6 +316,8 @@ function getTransactions() {
 
   window.DemoWallet = {
     getWallet: getWallet,
+    getTokenBalances: getTokenBalances,
+    applySwap: applySwap,
     addIncome: addIncome,
     applyToAssetsPage: applyToAssetsPage,
     grantSignupBonusOnce: grantSignupBonusOnce,

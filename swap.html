@@ -452,7 +452,7 @@
     TRX: 0.1
   };
 
-  const balances = {
+  let balances = {
     USDT: 0,
     USDC: 0,
     BTC: 0,
@@ -547,7 +547,17 @@
     const received = amount * rate;
 
     balances[fromToken] = fromBalance - amount;
-    balances[toToken] = balances[toToken] + received;
+    balances[toToken] = (balances[toToken] || 0) + received;
+
+    if (window.DemoWallet && typeof window.DemoWallet.applySwap === 'function') {
+      DemoWallet.applySwap(fromToken, toToken, amount, received);
+      if (typeof window.DemoWallet.getTokenBalances === 'function') {
+        var tb = DemoWallet.getTokenBalances();
+        if (tb) {
+          balances = Object.assign(balances, tb);
+        }
+      }
+    }
 
     updateBalancesUI();
 
@@ -635,21 +645,24 @@
 
 
   function syncFromWallet() {
-    if (window.DemoWallet && typeof window.DemoWallet.getWallet === 'function') {
+    if (window.DemoWallet && typeof window.DemoWallet.getTokenBalances === 'function') {
+      var tb = DemoWallet.getTokenBalances();
+      if (tb) {
+        balances = Object.assign(balances, tb);
+      }
+    } else if (window.DemoWallet && typeof window.DemoWallet.getWallet === 'function') {
       var w = DemoWallet.getWallet();
       if (w && typeof w.balance === 'number') {
         balances.USDT = w.balance;
-        updateBalancesUI();
-        updateExpected();
       }
     }
+    updateBalancesUI();
+    updateExpected();
   }
 
   // init
   syncFromWallet();
-  updateBalancesUI();
   updateRateText();
-  updateExpected();
 </script>
 </body>
 </html>
